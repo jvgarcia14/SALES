@@ -1,26 +1,20 @@
-import asyncio
-from collections import defaultdict
-from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    ContextTypes,
-    MessageHandler,
-    CommandHandler,
-    filters,
-)
+import os
 import re
 import datetime
+from collections import defaultdict
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
 # ================= CONFIG =================
-BOT_TOKEN = "7855003555:AAFT4USD12ahjjUT9QK8RvAqdCQI5URBkNA"
+BOT_TOKEN = os.getenv("7855003555:AAFT4USD12ahjjUT9QK8RvAqdCQI5URBkNA")
 ALLOWED_USERS = [5513230302, 6884192394]
 # =========================================
 
 # Per-group state
 listening_chats = set()
-sales_data = defaultdict(list)      # chat_id -> list of sales
-invalid_format = defaultdict(bool)  # chat_id -> invalid flag
-confirmed = defaultdict(bool)       # chat_id -> auto-confirm shown
+sales_data = defaultdict(list)
+invalid_format = defaultdict(bool)
+confirmed = defaultdict(bool)
 
 
 # --------- HELPERS ---------
@@ -50,28 +44,16 @@ async def show_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"ID: `{user.id}`\n"
         f"Username: @{user.username}\n"
         f"Name: {user.full_name}",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
 
 
-async def start_listening(update: Update, context: ContextTypes.DEFAULT_TYPE):(update: Update, context: ContextTypes.DEFAULT_TYPE):(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_listening(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat_id = update.effective_chat.id
 
-    # 🔍 Always show user ID (for authorization)
-    await update.message.reply_text(
-        f"👤 User Info:
-"
-        f"ID: `{user.id}`
-"
-        f"Username: @{user.username}
-"
-        f"Name: {user.full_name}",
-        parse_mode="Markdown"
-    )
-
     if user.id not in ALLOWED_USERS:
-        await update.message.reply_text("❌ You are not authorized yet. Please send your ID to admin.")
+        await update.message.reply_text("❌ You are not authorized yet. Use /id and send your ID to admin.")
         return
 
     listening_chats.add(chat_id)
@@ -95,7 +77,7 @@ async def send_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No sales data yet.")
         return
 
-    # Auto confirmation before summary (shown only once)
+    # First /done = confirmation
     if not confirmed[chat_id]:
         confirmed[chat_id] = True
         await update.message.reply_text(
@@ -144,8 +126,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg = update.message
-
-    if msg.caption:
+    if msg and msg.caption:
         parsed = parse_caption(msg.caption)
         if not parsed:
             invalid_format[chat_id] = True
@@ -157,7 +138,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("id", show_id))
     app.add_handler(CommandHandler("id", show_id))
     app.add_handler(CommandHandler("start", start_listening))
     app.add_handler(CommandHandler("done", send_summary))
