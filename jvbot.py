@@ -43,12 +43,35 @@ def parse_caption(caption: str):
 
 
 # --------- COMMANDS ---------
-async def start_listening(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    await update.message.reply_text(
+        f"👤 Your Telegram ID:\n"
+        f"ID: `{user.id}`\n"
+        f"Username: @{user.username}\n"
+        f"Name: {user.full_name}",
+        parse_mode="Markdown"
+    )
+
+
+async def start_listening(update: Update, context: ContextTypes.DEFAULT_TYPE):(update: Update, context: ContextTypes.DEFAULT_TYPE):(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat_id = update.effective_chat.id
 
+    # 🔍 Always show user ID (for authorization)
+    await update.message.reply_text(
+        f"👤 User Info:
+"
+        f"ID: `{user.id}`
+"
+        f"Username: @{user.username}
+"
+        f"Name: {user.full_name}",
+        parse_mode="Markdown"
+    )
+
     if user.id not in ALLOWED_USERS:
-        await update.message.reply_text("❌ You are not authorized to use this bot.")
+        await update.message.reply_text("❌ You are not authorized yet. Please send your ID to admin.")
         return
 
     listening_chats.add(chat_id)
@@ -95,11 +118,11 @@ async def send_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ppv_lines = [f"${s['ppv']:.2f} PPV from {s['link']}" for s in ppvs]
 
     summary = (
-        f"Summary of Tips and VIPs for: Name\n"
+        f"Summary of Tips and VIPs for: Jayvee\n"
         f"{date_str}\n"
         f"5PM to 1AM PST\n"
         f"Shift: (8 hours)\n"
-        f"Creator: Page\n"
+        f"Creator: Brittanya\n"
         f"VIP/Tips:\n" + "\n".join(tips_lines) +
         "\nPPVs:\n" + "\n".join(ppv_lines) +
         f"\n\nTOTAL GROSS SALE: ${total:.2f}" +
@@ -134,6 +157,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    app.add_handler(CommandHandler("id", show_id))
+    app.add_handler(CommandHandler("id", show_id))
     app.add_handler(CommandHandler("start", start_listening))
     app.add_handler(CommandHandler("done", send_summary))
     app.add_handler(MessageHandler(filters.ALL, handle_messages))
