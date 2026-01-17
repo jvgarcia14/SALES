@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
 # ================= CONFIG =================
-BOT_TOKEN = os.getenv("7855003555:AAFT4USD12ahjjUT9QK8RvAqdCQI5URBkNA")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 ALLOWED_USERS = [5513230302, 6884192394]
 # =========================================
 
