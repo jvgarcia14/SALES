@@ -122,11 +122,11 @@ async def send_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ppv_lines = [f"${s['ppv']:.2f} PPV from {s['link']}" for s in ppvs]
 
     summary = (
-        f"Summary of Tips and VIPs for: Jayvee\n"
+        f"Summary of Tips and VIPs for: Name\n"
         f"{date_str}\n"
         f"5PM to 1AM PST\n"
         f"Shift: (8 hours)\n"
-        f"Creator: Brittanya\n"
+        f"Creator: Page\n"
         f"VIP/Tips:\n" + "\n".join(tips_lines) +
         "\nPPVs:\n" + "\n".join(ppv_lines) +
         f"\n\nTOTAL GROSS SALE: ${total:.2f}"
@@ -167,5 +167,6 @@ if __name__ == "__main__":
 
     print("🤖 Auto-confirm sales bot running...")
     app.run_polling()
+
 
 
