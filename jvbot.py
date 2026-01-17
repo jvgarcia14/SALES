@@ -1,0 +1,142 @@
+import asyncio
+from collections import defaultdict
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    MessageHandler,
+    CommandHandler,
+    filters,
+)
+import re
+import datetime
+
+# ================= CONFIG =================
+BOT_TOKEN = "7855003555:AAFT4USD12ahjjUT9QK8RvAqdCQI5URBkNA"
+ALLOWED_USERS = [5513230302, 6884192394]
+# =========================================
+
+# Per-group state
+listening_chats = set()
+sales_data = defaultdict(list)      # chat_id -> list of sales
+invalid_format = defaultdict(bool)  # chat_id -> invalid flag
+confirmed = defaultdict(bool)       # chat_id -> auto-confirm shown
+
+
+# --------- HELPERS ---------
+def parse_caption(caption: str):
+    if not caption:
+        return None
+
+    link_match = re.search(r"https://onlyfans\.com/\S+", caption)
+    tip_match = re.search(r"\$(\d+(?:\.\d{2})?)\s*TIP", caption, re.IGNORECASE)
+    ppv_match = re.search(r"\$(\d+(?:\.\d{2})?)\s*PPV", caption, re.IGNORECASE)
+
+    if not link_match or (not tip_match and not ppv_match):
+        return None
+
+    return {
+        "link": link_match.group(0),
+        "tip": float(tip_match.group(1)) if tip_match else 0.0,
+        "ppv": float(ppv_match.group(1)) if ppv_match else 0.0,
+    }
+
+
+# --------- COMMANDS ---------
+async def start_listening(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+
+    if user.id not in ALLOWED_USERS:
+        await update.message.reply_text("❌ You are not authorized to use this bot.")
+        return
+
+    listening_chats.add(chat_id)
+    sales_data[chat_id].clear()
+    invalid_format[chat_id] = False
+    confirmed[chat_id] = False
+
+    await update.message.reply_text("✅ Bot is now listening. Send your sales.")
+
+
+async def send_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    if invalid_format[chat_id]:
+        await update.message.reply_text(
+            "❌ Wrong format detected. Fix the sales and send them again. Use /start to reset."
+        )
+        return
+
+    if not sales_data[chat_id]:
+        await update.message.reply_text("No sales data yet.")
+        return
+
+    # Auto confirmation before summary (shown only once)
+    if not confirmed[chat_id]:
+        confirmed[chat_id] = True
+        await update.message.reply_text(
+            "✅ All sales recorded. Done computing.\nSend /done again to generate the summary."
+        )
+        return
+
+    listening_chats.discard(chat_id)
+
+    today = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=8)
+    date_str = today.strftime("%m/%d/%Y")
+
+    tips = [s for s in sales_data[chat_id] if s['tip'] > 0]
+    ppvs = [s for s in sales_data[chat_id] if s['ppv'] > 0]
+
+    total = sum(s['tip'] + s['ppv'] for s in sales_data[chat_id])
+    net = total * 0.8
+
+    tips_lines = [f"${s['tip']:.2f} TIP from {s['link']}" for s in tips]
+    ppv_lines = [f"${s['ppv']:.2f} PPV from {s['link']}" for s in ppvs]
+
+    summary = (
+        f"Summary of Tips and VIPs for: Name\n"
+        f"{date_str}\n"
+        f"5PM to 1AM PST\n"
+        f"Shift: (8 hours)\n"
+        f"Creator: Page\n"
+        f"VIP/Tips:\n" + "\n".join(tips_lines) +
+        "\nPPVs:\n" + "\n".join(ppv_lines) +
+        f"\n\nTOTAL GROSS SALE: ${total:.2f}" +
+        f"\nTOTAL NET SALE: ${net:.2f}"
+    )
+
+    await update.message.reply_text(summary)
+
+    sales_data[chat_id].clear()
+    invalid_format[chat_id] = False
+    confirmed[chat_id] = False
+
+
+# --------- MESSAGE HANDLER ---------
+async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    if chat_id not in listening_chats:
+        return
+
+    msg = update.message
+
+    if msg.caption:
+        parsed = parse_caption(msg.caption)
+        if not parsed:
+            invalid_format[chat_id] = True
+        else:
+            sales_data[chat_id].append(parsed)
+
+
+# --------- MAIN ---------
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start_listening))
+    app.add_handler(CommandHandler("done", send_summary))
+    app.add_handler(MessageHandler(filters.ALL, handle_messages))
+
+    print("🤖 Auto-confirm sales bot running...")
+    app.run_polling()
