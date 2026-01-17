@@ -3,11 +3,17 @@ import re
 import datetime
 from collections import defaultdict
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
 # ================= CONFIG =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ALLOWED_USERS = [5513230302, 6884192394, 6693305516, 1816005650, 7162861125, 1816005650]
+ALLOWED_USERS = [5513230302, 6884192394]
 # =========================================
 
 # Per-group state
@@ -22,15 +28,29 @@ def parse_caption(caption: str):
     if not caption:
         return None
 
+    # Accept identifiers
     link_match = re.search(r"https://onlyfans\.com/\S+", caption)
+    user_match = re.search(r"@\w+", caption)
+    deleted_match = re.search(r"\bDELETED USER\b", caption, re.IGNORECASE)
+
     tip_match = re.search(r"\$(\d+(?:\.\d{2})?)\s*TIP", caption, re.IGNORECASE)
     ppv_match = re.search(r"\$(\d+(?:\.\d{2})?)\s*PPV", caption, re.IGNORECASE)
 
-    if not link_match or (not tip_match and not ppv_match):
+    # Must have TIP or PPV
+    if not tip_match and not ppv_match:
+        return None
+
+    if link_match:
+        identifier = link_match.group(0)
+    elif user_match:
+        identifier = user_match.group(0)
+    elif deleted_match:
+        identifier = "DELETED USER"
+    else:
         return None
 
     return {
-        "link": link_match.group(0),
+        "link": identifier,
         "tip": float(tip_match.group(1)) if tip_match else 0.0,
         "ppv": float(ppv_match.group(1)) if ppv_match else 0.0,
     }
@@ -53,7 +73,9 @@ async def start_listening(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
     if user.id not in ALLOWED_USERS:
-        await update.message.reply_text("❌ You are not authorized yet. Use /id and send your ID to admin.")
+        await update.message.reply_text(
+            "❌ You are not authorized yet.\nUse /id and send your ID to admin."
+        )
         return
 
     listening_chats.add(chat_id)
@@ -69,7 +91,7 @@ async def send_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if invalid_format[chat_id]:
         await update.message.reply_text(
-            "❌ Wrong format detected. Fix the sales and send them again. Use /start to reset."
+            "❌ Wrong format detected.\nFix the sales and send them again.\nUse /start to reset."
         )
         return
 
@@ -90,10 +112,10 @@ async def send_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=8)
     date_str = today.strftime("%m/%d/%Y")
 
-    tips = [s for s in sales_data[chat_id] if s['tip'] > 0]
-    ppvs = [s for s in sales_data[chat_id] if s['ppv'] > 0]
+    tips = [s for s in sales_data[chat_id] if s["tip"] > 0]
+    ppvs = [s for s in sales_data[chat_id] if s["ppv"] > 0]
 
-    total = sum(s['tip'] + s['ppv'] for s in sales_data[chat_id])
+    total = sum(s["tip"] + s["ppv"] for s in sales_data[chat_id])
     net = total * 0.8
 
     tips_lines = [f"${s['tip']:.2f} TIP from {s['link']}" for s in tips]
@@ -107,7 +129,7 @@ async def send_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Creator: Brittanya\n"
         f"VIP/Tips:\n" + "\n".join(tips_lines) +
         "\nPPVs:\n" + "\n".join(ppv_lines) +
-        f"\n\nTOTAL GROSS SALE: ${total:.2f}" +
+        f"\n\nTOTAL GROSS SALE: ${total:.2f}"
         f"\nTOTAL NET SALE: ${net:.2f}"
     )
 
@@ -145,6 +167,3 @@ if __name__ == "__main__":
 
     print("🤖 Auto-confirm sales bot running...")
     app.run_polling()
-
-
-
