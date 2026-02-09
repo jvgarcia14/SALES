@@ -13,7 +13,7 @@ from telegram.ext import (
 
 # ================= CONFIG =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ALLOWED_USERS = [5513230302, 6644263958, 6884192394, 5035167723]
+ALLOWED_USERS = [5513230302, 6644263958, 6884192394, 5035167723, 8252409930]
 # =========================================
 
 # Per-group state
@@ -167,6 +167,7 @@ if __name__ == "__main__":
 
     print("🤖 Auto-confirm sales bot running...")
     app.run_polling()
+
 
 
 
